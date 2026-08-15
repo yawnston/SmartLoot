@@ -1,17 +1,27 @@
 SmartLoot = {};
 
-SmartLoot.Version = "1.2";
+SmartLoot.Version = "1.3";
 
 SmartLoot.Roll = {
 	Pass = 0;
 	Need = 1;
 	Greed = 2;
+	Disenchant = 3;
 };
 
 SmartLoot_Options = nil;
 SmartLoot_Autoroll = {};
 SmartLoot.LootFrames = nil;
 SmartLoot.Queue = {};
+
+-- roll buttons in the order they appear on a loot frame; suffix matches the
+-- $parent_<suffix> / $parent_<suffix>Advanced widgets in SmartLoot_RollTemplate
+SmartLoot.RollButtons = {
+	{ suffix = "Need"; label = "Need"; roll = SmartLoot.Roll.Need };
+	{ suffix = "Greed"; label = "Greed"; roll = SmartLoot.Roll.Greed };
+	{ suffix = "Disenchant"; label = "Disenchant"; roll = SmartLoot.Roll.Disenchant };
+	{ suffix = "Pass"; label = "Pass"; roll = SmartLoot.Roll.Pass };
+};
 
 SmartLoot.Res = {
 	MinmapTooltip1 = "SmartLoot";
@@ -31,7 +41,7 @@ SmartLoot.Res = {
 	};
 	AutoConfirm = {
 		Label = "Autoconfirm rolls";
-		Tooltip = "Automatically confim rolling on BoP items.";
+		Tooltip = "Automatically confim rolling on BoP items and disenchanting.";
 	};
 	LootFrameCount = {
 		Label = "Loot frame count";
@@ -49,39 +59,48 @@ SmartLoot.Res = {
 }
 
 function SmartLoot.OnLoad(self)
-		
+
 	SLASH_SLOOT1 = "/sloot";
-	
+
 	SlashCmdList["SLOOT"] = function(msg)
 		SmartLoot.ToggleOptions();
 	end
-	
+
+	-- registered from lua rather than xml so the handler gets the event
+	-- arguments passed as parameters instead of via the removed arg1 globals
+	self:SetScript("OnEvent", SmartLoot.OnEvent);
+
 	self:RegisterEvent("CONFIRM_LOOT_ROLL");
+	self:RegisterEvent("CONFIRM_DISENCHANT_ROLL");
 	self:RegisterEvent("START_LOOT_ROLL");
 	self:RegisterEvent("ADDON_LOADED");
 	self:RegisterEvent("CANCEL_LOOT_ROLL");
 end
 
-function SmartLoot.OnEvent(event)
-	if(event == "START_LOOT_ROLL") then		
+function SmartLoot.OnEvent(self, event, arg1, arg2)
+	if(event == "START_LOOT_ROLL") then
 		if(SmartLoot_Options.HideDefaultFrames) then
 			SmartLoot.ToggleDefaultFrames(false);
 		end
-	
+
 		local rollId = arg1;
 		local timeout = arg2;
-				
-		local texture, name, count, quality, bindOnPickup = GetLootRollItemInfo(rollId);
-		
-		if(SmartLoot_Options.AutoLoot and SmartLoot_Autoroll[name]) then
-			RollOnLoot(rollId, SmartLoot_Autoroll[name].roll);
+
+		local loot = SmartLoot.GetLootInfo(rollId, timeout);
+		local autoroll = SmartLoot_Autoroll[loot.name];
+
+		-- an autoroll rule for a roll the server won't accept (need on an item
+		-- of the wrong armour type, disenchant without the skill, ...) would be
+		-- silently dropped, so fall back to showing the frame
+		if(SmartLoot_Options.AutoLoot and autoroll and loot.can[autoroll.roll]) then
+			RollOnLoot(rollId, autoroll.roll);
 		else
-			SmartLoot.QueueLoot(rollId, timeout, texture, name, quality);
+			SmartLoot.QueueLoot(loot);
 		end
 	elseif(event == "CANCEL_LOOT_ROLL") then
 		-- fires after rolling or passing on an item
 		SmartLoot.ClearLoot(arg1);
-	elseif(event == "CONFIRM_LOOT_ROLL") then
+	elseif(event == "CONFIRM_LOOT_ROLL" or event == "CONFIRM_DISENCHANT_ROLL") then
 		if(SmartLoot_Options.AutoConfirm) then
 			ConfirmLootRoll(arg1, arg2);
 			StaticPopup_Hide("CONFIRM_LOOT_ROLL", arg1);
@@ -92,11 +111,63 @@ function SmartLoot.OnEvent(event)
 	end
 end
 
+-- LOOT_ROLL_INELIGIBLE_REASON<n> explains why a roll type is unavailable;
+-- reason 5 (disenchant) takes the required skill level as a format argument
+function SmartLoot.IneligibleReason(reason, deSkillRequired)
+	if(not reason or reason == 0) then
+		return nil;
+	end
+
+	local text = getglobal("LOOT_ROLL_INELIGIBLE_REASON"..reason);
+
+	if(not text) then
+		return nil;
+	end
+
+	if(string.find(text, "%%d")) then
+		return string.format(text, deSkillRequired or 0);
+	end
+
+	return text;
+end
+
+function SmartLoot.GetLootInfo(rollId, timeout)
+	local texture, name, count, quality, bindOnPickup, canNeed, canGreed, canDisenchant,
+		reasonNeed, reasonGreed, reasonDisenchant, deSkillRequired = GetLootRollItemInfo(rollId);
+
+	local loot = {
+		rollId = rollId;
+		timeout = timeout;
+		texture = texture;
+		-- START_LOOT_ROLL occasionally fires before the item is cached
+		name = name or ("Item "..rollId);
+		quality = quality or 1;
+		can = {};
+		reason = {};
+	};
+
+	if(canNeed == nil and canGreed == nil and canDisenchant == nil) then
+		-- client doesn't report eligibility, assume everything is allowed
+		canNeed, canGreed, canDisenchant = true, true, false;
+	end
+
+	loot.can[SmartLoot.Roll.Need] = (canNeed and true) or false;
+	loot.can[SmartLoot.Roll.Greed] = (canGreed and true) or false;
+	loot.can[SmartLoot.Roll.Disenchant] = (canDisenchant and true) or false;
+	loot.can[SmartLoot.Roll.Pass] = true;
+
+	loot.reason[SmartLoot.Roll.Need] = SmartLoot.IneligibleReason(reasonNeed);
+	loot.reason[SmartLoot.Roll.Greed] = SmartLoot.IneligibleReason(reasonGreed);
+	loot.reason[SmartLoot.Roll.Disenchant] = SmartLoot.IneligibleReason(reasonDisenchant, deSkillRequired);
+
+	return loot;
+end
+
 function SmartLoot.EnsureOptions()
 	if(not SmartLoot_Options) then
 		SmartLoot_Options = {};
 	end
-	
+
 	local set = function(option, value)
 		if(SmartLoot_Options[option] == nil) then
 			SmartLoot_Options[option] = value;
@@ -122,11 +193,11 @@ end
 
 function SmartLoot.ToggleDefaultFrames(show)
 	local toggle;
-	
+
 	if(show) then
 		toggle = function(frame)
 			local rollId = frame.rollID;
-						
+
 			if(rollId ~= nil and GetLootRollTimeLeft(rollId) > 0) then
 				frame:Show();
 			end
@@ -136,90 +207,93 @@ function SmartLoot.ToggleDefaultFrames(show)
 			frame:Hide();
 		end
 	end
-	
-	for id = 1, 4, 1 do
+
+	for id = 1, (NUM_GROUP_LOOT_FRAMES or 4), 1 do
 		local defaultLootFrame = getglobal("GroupLootFrame"..id);
-		
-		toggle(defaultLootFrame);
+
+		if(defaultLootFrame) then
+			toggle(defaultLootFrame);
+		end
 	end
 end
 
 function SmartLoot.CreateLootFrames()
 	SmartLoot.LootFrames = {};
-	
+
 	for id = 1, SmartLoot_Options.LootFrameCount, 1 do
-		
+
 		local frameName = "SmartLoot_Loot"..id;
 		local frame = getglobal(frameName);
-				
+
 		if(not frame) then
-			local frameName = "SmartLoot_Loot"..id;
 			frame = CreateFrame("Frame", frameName, UIParent, "SmartLoot_RollTemplate");
 			frame:Hide();
 			frame:SetPoint("TOP", SmartLoot_LootFrame, "BOTTOM", 0, (id - 1) * -40 - (id - 1) * 2)
 			frame.loot = nil;
-			
-			local needDropDown = CreateFrame("Frame", frameName.."_AdvancedNeedDropDown", frame);
-			needDropDown.initialize = SmartLoot.InitializeNeedDropDown;
-			
-			local greedDropDown = CreateFrame("Frame", frameName.."_AdvancedGreedDropDown", frame);
-			greedDropDown.initialize = SmartLoot.InitializeGreedDropDown;
-			
-			local passDropDown = CreateFrame("Frame", frameName.."_AdvancedPassDropDown", frame);
-			passDropDown.initialize = SmartLoot.InitializePassDropDown;
+
+			for i, button in ipairs(SmartLoot.RollButtons) do
+				local dropDown = CreateFrame("Frame", frameName.."_Advanced"..button.suffix.."DropDown", frame);
+
+				-- the dropdown initializer is invoked as dropDown:initialize(level, menuList)
+				dropDown.initialize = function(dd, level)
+					SmartLoot.InitializeRollDropDown(dd, button.roll, button.label);
+				end
+			end
 		end
-				
+
 		SmartLoot.LootFrames[id] = frame;
-		
+
+	end
+
+	-- frames created by a previously higher LootFrameCount are no longer part of
+	-- the queue rotation and would otherwise stay on screen forever
+	local orphan = SmartLoot_Options.LootFrameCount + 1;
+	while(getglobal("SmartLoot_Loot"..orphan)) do
+		local frame = getglobal("SmartLoot_Loot"..orphan);
+		frame:Hide();
+		frame.loot = nil;
+		orphan = orphan + 1;
 	end
 end
 
-function SmartLoot.InitializeNeedDropDown()
-	local lootFrame = this:GetParent();
-	
-	SmartLoot.AddAutoLootButton(SmartLoot.Roll.Need, "Need", lootFrame.loot);
+function SmartLoot.InitializeRollDropDown(dropDown, roll, rollName)
+	local lootFrame = dropDown:GetParent();
+
+	if(not lootFrame.loot) then
+		return;
+	end
+
+	SmartLoot.AddAutoLootButton(roll, rollName, lootFrame.loot);
 end
 
-function SmartLoot.InitializeGreedDropDown()
-	local lootFrame = this:GetParent();
-	
-	SmartLoot.AddAutoLootButton(SmartLoot.Roll.Greed, "Greed", lootFrame.loot);
-end
-
-function SmartLoot.InitializePassDropDown()
-	local lootFrame = this:GetParent();
-	
-	SmartLoot.AddAutoLootButton(SmartLoot.Roll.Pass, "Pass", lootFrame.loot);
-end
-
-function SmartLoot.AddAutoLootButton(rollId, rollName, loot)
+function SmartLoot.AddAutoLootButton(roll, rollName, loot)
 	local color = ITEM_QUALITY_COLORS[loot.quality];
 	UIDropDownMenu_AddButton({
 		text = "Always "..rollName.." on "..color.hex.."["..loot.name.."]|r";
 		func = SmartLoot.AddAutoLoot;
-		arg1 = { loot = loot; roll = rollId };
+		arg1 = { loot = loot; roll = roll };
 		notCheckable = true;
 		justifyH = "CENTER";
 	});
 end
 
-function SmartLoot.AddAutoLoot()
-	local roll = this.arg1.roll;
-	local loot = this.arg1.loot;
-	
+function SmartLoot.AddAutoLoot(self, arg1)
+	local roll = arg1.roll;
+	local loot = arg1.loot;
+
 	SmartLoot_Autoroll[loot.name] = {
 		quality = loot.quality;
 		roll = roll;
 	};
-	
+
 	local tmp = {};
-	
+
 	for i, l in ipairs(SmartLoot.Queue) do
-		if(l.name == loot.name) then
+		if(l.name == loot.name and l.can[roll]) then
 			table.insert(tmp, l.rollId);
 		end
 	end
-	
+
 	for i, id in ipairs(tmp) do
 		RollOnLoot(id, roll);
 	end
@@ -228,30 +302,16 @@ end
 function SmartLoot.Initialize()
 
 	tinsert(UISpecialFrames, "SmartLoot_OptionsFrame"); -- enables closing the options frame by pressing Esc
-		
+
 	SmartLoot.SetAnchorDisplay();
 	SmartLoot.UpdateMinimapButtonPosition();
 	SmartLoot.CreateLootFrames();
 	SmartLoot.Print("loaded. v"..SmartLoot.Version.." by Necroskillz. Use /sloot or minimap button to open options.");
-	
+
 end
 
--- function SmartLoot.HandleLootMsg(msg)
-	-- -- You have selected Need|Greed for: |cff1eff00|Hitem:6344:0:0:0|h[....]|h|r
-	-- -- You passed on: |itemlink[]
-	-- -- You won: |itemlink[]
-	-- -- Everyone passed on: |itemlink[]
--- end
-
-function SmartLoot.QueueLoot(rollId, timeout, texture, name, quality)
-	table.insert(SmartLoot.Queue, {
-		rollId = rollId;
-		timeout = timeout;
-		texture = texture;
-		name = name;
-		quality = quality;
-		r = false;
-	});
+function SmartLoot.QueueLoot(loot)
+	table.insert(SmartLoot.Queue, loot);
 
 	SmartLoot.ProcessQueue();
 end
@@ -266,27 +326,44 @@ function SmartLoot.ProcessQueue()
 			frame:Hide();
 			frame.loot = nil;
 		end
-		
+
 		i = i + 1;
 	end
 end
 
 function SmartLoot.PopulateLootFrame(frame, loot)
 	frame.loot = loot;
-	
+
 	local frameName = frame:GetName();
 	local icon = getglobal(frameName.."_Icon_Image");
 	local itemName = getglobal(frameName.."_Info_ItemName");
 	local timeoutBar = getglobal(frameName.."_Timeout");
-		
+
 	timeoutBar:SetMinMaxValues(0, loot.timeout);
 	timeoutBar:SetValue(loot.timeout);
 	icon:SetTexture(loot.texture);
 	itemName:SetText(loot.name);
-	
+
 	local color = ITEM_QUALITY_COLORS[loot.quality];
 	itemName:SetTextColor(color.r, color.g, color.b, 1);
-	
+
+	for i, button in ipairs(SmartLoot.RollButtons) do
+		local rollButton = getglobal(frameName.."_"..button.suffix);
+		local advancedButton = getglobal(frameName.."_"..button.suffix.."Advanced");
+		local reason = loot.reason[button.roll];
+
+		rollButton.reason = reason;
+		advancedButton.reason = reason;
+
+		if(loot.can[button.roll]) then
+			rollButton:Enable();
+			advancedButton:Enable();
+		else
+			rollButton:Disable();
+			advancedButton:Disable();
+		end
+	end
+
 	frame:Show();
 end
 
@@ -297,38 +374,51 @@ function SmartLoot.ClearLoot(rollId)
 			break;
 		end
 	end
-		
+
 	SmartLoot.ProcessQueue();
-	StaticPopup_Hide("CONFIRM_LOOT_ROLL", arg1);
+	StaticPopup_Hide("CONFIRM_LOOT_ROLL", rollId);
 end
 
 function SmartLoot.OnTimeoutBarUpdate(self)
+	local loot = self.loot;
+
+	-- test loot has no real roll to query
+	if(not loot or loot.rollId < 0) then
+		return;
+	end
+
 	local timeoutBar = getglobal(self:GetName().."_Timeout");
-	local remaining = GetLootRollTimeLeft(self.loot.rollId);
-	
+	local remaining = GetLootRollTimeLeft(loot.rollId);
+
 	if(remaining > 0) then
 		timeoutBar:SetValue(remaining);
-	end	
+	end
 end
 
-function SmartLoot.RollNeed(self)
-	local rollId = self.loot.rollId;
-	RollOnLoot(rollId, SmartLoot.Roll.Need);
+function SmartLoot.DoRoll(self, roll)
+	if(not self.loot or self.loot.rollId < 0) then
+		return;
+	end
+
+	RollOnLoot(self.loot.rollId, roll);
 end
 
-function SmartLoot.RollGreed(self)
-	local rollId = self.loot.rollId;
-	RollOnLoot(rollId, SmartLoot.Roll.Greed);
-end
+function SmartLoot.ToggleRollDropDown(button, suffix)
+	local frame = button:GetParent();
+	local frameName = frame:GetName();
 
-function SmartLoot.Pass(self)
-	local rollId = self.loot.rollId;
-	RollOnLoot(rollId, SmartLoot.Roll.Pass);
+	ToggleDropDownMenu(nil, nil, getglobal(frameName.."_Advanced"..suffix.."DropDown"), frameName.."_"..suffix, -45, 5);
 end
 
 function SmartLoot.OnIconEnter(self)
-	GameTooltip:SetOwner(this, "ANCHOR_RIGHT", -(this:GetWidth()), 0);
-	GameTooltip:SetLootRollItem(self.loot.rollId);
+	local frame = self:GetParent();
+
+	if(not frame.loot or frame.loot.rollId < 0) then
+		return;
+	end
+
+	GameTooltip:SetOwner(self, "ANCHOR_RIGHT", -(self:GetWidth()), 0);
+	GameTooltip:SetLootRollItem(frame.loot.rollId);
 	GameTooltip:Show();
 end
 
@@ -336,24 +426,44 @@ function SmartLoot.OnIconLeave(self)
 	GameTooltip:Hide();
 end
 
+function SmartLoot.OnRollButtonEnter(self)
+	if(not self.reason) then
+		return;
+	end
+
+	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
+	GameTooltip:SetText(self.reason, nil, nil, nil, nil, true);
+	GameTooltip:Show();
+end
+
 function SmartLoot.ToggleTestLoot(show)
 	if(show) then
 		for i = 1, SmartLoot_Options.LootFrameCount, 1 do
-			SmartLoot.QueueLoot(-1, 60000, "Interface\\Icons\\INV_Helmet_51", "Crimson Felt Hat", 3);
+			local loot = {
+				rollId = -1;
+				timeout = 60000;
+				texture = "Interface\\Icons\\INV_Helmet_51";
+				name = "Crimson Felt Hat";
+				quality = 3;
+				can = {};
+				reason = {};
+			};
+
+			loot.can[SmartLoot.Roll.Need] = true;
+			loot.can[SmartLoot.Roll.Greed] = true;
+			loot.can[SmartLoot.Roll.Disenchant] = true;
+			loot.can[SmartLoot.Roll.Pass] = true;
+
+			SmartLoot.QueueLoot(loot);
 		end
 	else
-		local removeTable = {};
-		
-		for i, loot in ipairs(SmartLoot.Queue) do
-			if(loot.rollId == -1) then
-				table.insert(removeTable, i);
+		-- iterate backwards, removing by ascending index shifts the later ones
+		for i = #SmartLoot.Queue, 1, -1 do
+			if(SmartLoot.Queue[i].rollId == -1) then
+				table.remove(SmartLoot.Queue, i);
 			end
 		end
-		
-		for i, id in ipairs(removeTable) do
-			table.remove(SmartLoot.Queue, id);
-		end
-		
+
 		SmartLoot.ProcessQueue();
 	end
 end
@@ -371,6 +481,6 @@ function SmartLoot.Print(text)
 	if(text == nil) then
 		text = "-nil-";
 	end
-	
+
 	DEFAULT_CHAT_FRAME:AddMessage("SmartLoot: "..(text));
 end

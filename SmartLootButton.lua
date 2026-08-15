@@ -1,9 +1,9 @@
 function SmartLoot.MinimapButtonBeingDragged()
-    local xpos,ypos = GetCursorPosition() 
-    local xmin,ymin = Minimap:GetLeft(), Minimap:GetBottom() 
+    local xpos,ypos = GetCursorPosition()
+    local xmin,ymin = Minimap:GetLeft(), Minimap:GetBottom()
 
-    xpos = xmin-xpos/UIParent:GetScale()+70 
-    ypos = ypos/UIParent:GetScale()-ymin-70 
+    xpos = xmin-xpos/UIParent:GetScale()+70
+    ypos = ypos/UIParent:GetScale()-ymin-70
 
     SmartLoot.SetMinimapButtonPosition(math.deg(math.atan2(ypos,xpos)));
 end
@@ -26,7 +26,7 @@ function SmartLoot.UpdateMinimapButtonPosition()
 			54 - (78 * cos(SmartLoot_Options.MinimapButtonPosition)),
 			(78 * sin(SmartLoot_Options.MinimapButtonPosition)) - 55
 		);
-		
+
 		SmartLoot_Minimap:Show();
 	else
 		SmartLoot_Minimap:Hide();
@@ -37,8 +37,8 @@ function SmartLoot.OnMinimapButtonClick()
 	SmartLoot.ToggleOptions();
 end
 
-function SmartLoot.OnMinimapButtonEnter()
-    GameTooltip:SetOwner(this, "ANCHOR_LEFT");
+function SmartLoot.OnMinimapButtonEnter(self)
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT");
     GameTooltip:SetText(SmartLoot.Res.MinmapTooltip1);
     GameTooltip:AddLine(SmartLoot.Res.MinmapTooltip2);
     GameTooltip:AddLine(SmartLoot.Res.MinmapTooltip3);

@@ -1,17 +1,25 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/"   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"   xsi:schemaLocation="http://www.blizzard.com/wow/ui/">
-	<Button name="SmartLoot_RollButtonTemplate" inherits="UIPanelButtonTemplate" virtual="true">
+	<Button name="SmartLoot_RollButtonTemplate" inherits="UIPanelButtonTemplate" virtual="true" motionScriptsWhileDisabled="true">
 		<Size>
-			<AbsDimension x="40" y="18" />
+			<AbsDimension x="36" y="18" />
 		</Size>
 		<NormalText inherits="GameFontNormalSmall"/>
 		<HighlightText inherits="GameFontHighlightSmall"/>
+		<Scripts>
+			<OnEnter>
+				SmartLoot.OnRollButtonEnter(self);
+			</OnEnter>
+			<OnLeave>
+				GameTooltip:Hide();
+			</OnLeave>
+		</Scripts>
 	</Button>
-	
-	<Button name="SmartLoot_DropDownButtonTemplate" virtual="true"  motionScriptsWhileDisabled="true" >
+
+	<Button name="SmartLoot_DropDownButtonTemplate" virtual="true" motionScriptsWhileDisabled="true">
 		<Size>
 			<AbsDimension x="22" y="22"/>
 		</Size>
-		<NormalTexture name="$parentNormalTexture" urgency="5" file="Interface\ChatFrame\UI-ChatIcon-ScrollDown-Up">
+		<NormalTexture name="$parentNormalTexture" file="Interface\ChatFrame\UI-ChatIcon-ScrollDown-Up">
 			<Size>
 				<AbsDimension x="22" y="22"/>
 			</Size>
@@ -27,7 +35,7 @@
 				<Anchor point="RIGHT"/>
 			</Anchors>
 		</PushedTexture>
-		<DisabledTexture name="$parentDisabledTexture" urgency="5" file="Interface\ChatFrame\UI-ChatIcon-ScrollDown-Disabled">
+		<DisabledTexture name="$parentDisabledTexture" file="Interface\ChatFrame\UI-ChatIcon-ScrollDown-Disabled">
 			<Size>
 				<AbsDimension x="22" y="22"/>
 			</Size>
@@ -43,11 +51,19 @@
 				<Anchor point="RIGHT"/>
 			</Anchors>
 		</HighlightTexture>
+		<Scripts>
+			<OnEnter>
+				SmartLoot.OnRollButtonEnter(self);
+			</OnEnter>
+			<OnLeave>
+				GameTooltip:Hide();
+			</OnLeave>
+		</Scripts>
 	</Button>
 
-	<Frame name="SmartLoot_RollTemplate" frameStrata="HIGH" virtual="true" parent="SmartLoot_LootFrame">
+	<Frame name="SmartLoot_RollTemplate" frameStrata="HIGH" virtual="true">
 		<Size>
-			<AbsDimension x="220" y="40"/>
+			<AbsDimension x="260" y="40"/>
 		</Size>
 		<Backdrop bgFile="Interface\DialogFrame\UI-DialogBox-Background">
 		</Backdrop>
@@ -74,16 +90,16 @@
 				</Layers>
 				<Scripts>
 					<OnEnter>
-						SmartLoot.OnIconEnter(this:GetParent())
+						SmartLoot.OnIconEnter(self);
 					</OnEnter>
 					<OnLeave>
-						SmartLoot.OnIconLeave(this:GetParent())
+						SmartLoot.OnIconLeave(self);
 					</OnLeave>
 				</Scripts>
 			</Button>
 			<Button name="$parent_Info">
 				<Size>
-					<AbsDimension x="175" y="15"/>
+					<AbsDimension x="215" y="15"/>
 				</Size>
 				<Anchors>
 					<Anchor point="TOPLEFT" relativeTo="$parent_Icon" relativePoint="TOPRIGHT">
@@ -96,10 +112,12 @@
 					<Layer level="ARTWORK">
 						<FontString name="$parent_ItemName" inherits="GameFontNormal" justifyH="LEFT">
 							<Size>
-								<AbsDimension x="175" y="15"/>
+								<AbsDimension x="215" y="15"/>
 							</Size>
-							<Anchor point="TOPLEFT" relativeTo="$parent" relativePoint="TOPLEFT">
-							</Anchor>
+							<Anchors>
+								<Anchor point="TOPLEFT" relativeTo="$parent" relativePoint="TOPLEFT">
+								</Anchor>
+							</Anchors>
 						</FontString>
 					</Layer>
 				</Layers>
@@ -114,7 +132,7 @@
 				</Anchors>
 				<Scripts>
 					<OnClick>
-						SmartLoot.RollNeed(this:GetParent());
+						SmartLoot.DoRoll(self:GetParent(), SmartLoot.Roll.Need);
 					</OnClick>
 				</Scripts>
 			</Button>
@@ -128,8 +146,7 @@
 				</Anchors>
 				<Scripts>
 					<OnClick>
-						local parentName = this:GetParent():GetName();
-						ToggleDropDownMenu(nil, nil, getglobal(parentName.."_AdvancedNeedDropDown"), parentName.."_Need", -45, 5);
+						SmartLoot.ToggleRollDropDown(self, "Need");
 					</OnClick>
 				</Scripts>
 			</Button>
@@ -143,7 +160,7 @@
 				</Anchors>
 				<Scripts>
 					<OnClick>
-						SmartLoot.RollGreed(this:GetParent());
+						SmartLoot.DoRoll(self:GetParent(), SmartLoot.Roll.Greed);
 					</OnClick>
 				</Scripts>
 			</Button>
@@ -157,12 +174,11 @@
 				</Anchors>
 				<Scripts>
 					<OnClick>
-						local parentName = this:GetParent():GetName();
-						ToggleDropDownMenu(nil, nil, getglobal(parentName.."_AdvancedGreedDropDown"), parentName.."_Need", -45, 5);
+						SmartLoot.ToggleRollDropDown(self, "Greed");
 					</OnClick>
 				</Scripts>
 			</Button>
-			<Button name="$parent_Pass" inherits="SmartLoot_RollButtonTemplate" text="Pass">
+			<Button name="$parent_Disenchant" inherits="SmartLoot_RollButtonTemplate" text="DE">
 				<Anchors>
 					<Anchor point="BOTTOMLEFT" relativeTo="$parent_GreedAdvanced" relativePoint="BOTTOMRIGHT">
 						<Offset>
@@ -172,7 +188,35 @@
 				</Anchors>
 				<Scripts>
 					<OnClick>
-						SmartLoot.Pass(this:GetParent());
+						SmartLoot.DoRoll(self:GetParent(), SmartLoot.Roll.Disenchant);
+					</OnClick>
+				</Scripts>
+			</Button>
+			<Button name="$parent_DisenchantAdvanced" inherits="SmartLoot_DropDownButtonTemplate">
+				<Anchors>
+					<Anchor point="BOTTOMLEFT" relativeTo="$parent_Disenchant" relativePoint="BOTTOMRIGHT">
+						<Offset>
+							<AbsDimension x="-3" y="-2" />
+						</Offset>
+					</Anchor>
+				</Anchors>
+				<Scripts>
+					<OnClick>
+						SmartLoot.ToggleRollDropDown(self, "Disenchant");
+					</OnClick>
+				</Scripts>
+			</Button>
+			<Button name="$parent_Pass" inherits="SmartLoot_RollButtonTemplate" text="Pass">
+				<Anchors>
+					<Anchor point="BOTTOMLEFT" relativeTo="$parent_DisenchantAdvanced" relativePoint="BOTTOMRIGHT">
+						<Offset>
+							<AbsDimension x="0" y="2" />
+						</Offset>
+					</Anchor>
+				</Anchors>
+				<Scripts>
+					<OnClick>
+						SmartLoot.DoRoll(self:GetParent(), SmartLoot.Roll.Pass);
 					</OnClick>
 				</Scripts>
 			</Button>
@@ -186,14 +230,13 @@
 				</Anchors>
 				<Scripts>
 					<OnClick>
-						local parentName = this:GetParent():GetName();
-						ToggleDropDownMenu(nil, nil, getglobal(parentName.."_AdvancedPassDropDown"), parentName.."_Need", -45, 5);
+						SmartLoot.ToggleRollDropDown(self, "Pass");
 					</OnClick>
 				</Scripts>
 			</Button>
 			<StatusBar name="$parent_Timeout">
 				<Size>
-					<AbsDimension x="220" y="5" />
+					<AbsDimension x="260" y="5" />
 				</Size>
 				<Anchors>
 					<Anchor point="BOTTOMLEFT" relativeTo="$parent" relativePoint="BOTTOMLEFT" />
@@ -202,7 +245,7 @@
 				<BarColor r="1.0" g="0.7" b="0.0"/>
 				<Scripts>
 					<OnUpdate>
-						SmartLoot.OnTimeoutBarUpdate(this:GetParent());
+						SmartLoot.OnTimeoutBarUpdate(self:GetParent());
 					</OnUpdate>
 				</Scripts>
 			</StatusBar>
@@ -213,40 +256,37 @@
 		<Size>
 			<AbsDimension x="200" y="30" />
 		</Size>
-		
+
 		<Anchors>
 			<Anchor point="CENTER" relativeTo="UIParent" relativePoint="CENTER" />
 		</Anchors>
-		
+
 		<TitleRegion setAllPoints="true" />
-		
+
 		<Layers>
 			<Layer level="ARTWORK">
-				<FontString inherits="GameFontHighlight" text="SmartLoot Anchor" justifyH="Center">
+				<FontString inherits="GameFontHighlight" text="SmartLoot Anchor" justifyH="CENTER">
 					<Size>
 						<AbsDimension x="200" y="20" />
 					</Size>
-					
+
 					<Anchors>
 						<Anchor point="BOTTOMLEFT" relativeTo="$parent" relativePoint="BOTTOMLEFT" />
 					</Anchors>
 				</FontString>
 			</Layer>
 		</Layers>
-				
+
 		<Backdrop bgFile="Interface\DialogFrame\UI-DialogBox-Background">
 			<BackgroundInsets>
 				<AbsInset top="12"/>
 			</BackgroundInsets>
 		</Backdrop>
-						
+
 		<Scripts>
 			<OnLoad>
-				SmartLoot.OnLoad(this)
+				SmartLoot.OnLoad(self);
 			</OnLoad>
-			<OnEvent>
-				SmartLoot.OnEvent(event)
-			</OnEvent>
 		</Scripts>
 	</Frame>
 </Ui>

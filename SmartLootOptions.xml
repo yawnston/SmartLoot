@@ -1,6 +1,27 @@
  <Ui xmlns="http://www.blizzard.com/wow/ui/"   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"   xsi:schemaLocation="http://www.blizzard.com/wow/ui/">
-	
-	<CheckButton name="AutorollListCheckButtonTemplate" inherits="OptionsCheckButtonTemplate" virtual="true">
+
+	<!-- UICheckButtonTemplate is the only check button template guaranteed to be
+	     present in every client, so the tooltipText handling that
+	     OptionsCheckButtonTemplate used to provide is done here instead -->
+	<CheckButton name="SmartLoot_CheckButtonTemplate" inherits="UICheckButtonTemplate" virtual="true">
+		<Size>
+			<AbsDimension x="24" y="24" />
+		</Size>
+		<Scripts>
+			<OnEnter>
+				if(self.tooltipText and self.tooltipText ~= "") then
+					GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
+					GameTooltip:SetText(self.tooltipText, nil, nil, nil, nil, true);
+					GameTooltip:Show();
+				end
+			</OnEnter>
+			<OnLeave>
+				GameTooltip:Hide();
+			</OnLeave>
+		</Scripts>
+	</CheckButton>
+
+	<CheckButton name="AutorollListCheckButtonTemplate" inherits="SmartLoot_CheckButtonTemplate" virtual="true">
 		<HitRectInsets>
 			<AbsInset left="0" right="0" top="0" bottom="0"/>
 		</HitRectInsets>
@@ -9,15 +30,15 @@
 		</Size>
 		<Scripts>
 			<OnEnter>
-				getglobal(this:GetParent():GetName().."_Highlight"):Show();
+				getglobal(self:GetParent():GetName().."_Highlight"):Show();
 			</OnEnter>
 			<OnLeave>
-				getglobal(this:GetParent():GetName().."_Highlight"):Hide();
+				getglobal(self:GetParent():GetName().."_Highlight"):Hide();
 			</OnLeave>
 		</Scripts>
 	</CheckButton>
-	
-	<Frame name="AutorollListItemTemplate" virtual="true">
+
+	<Frame name="AutorollListItemTemplate" virtual="true" enableMouse="true">
 		<Size>
 			<AbsDimension x="290" y="18"/>
 		</Size>
@@ -25,7 +46,6 @@
 			<Layer level="BACKGROUND">
 				<Texture name="$parent_Highlight" file="Interface\QuestFrame\UI-QuestTitleHighlight" alphaMode="ADD" setAllPoints="true" hidden="true"/>
 			</Layer>
-			<Texture name="$parentHighlight" file="Interface\QuestFrame\UI-QuestTitleHighlight" alphaMode="ADD" setAllPoints="true" hidden="true"/>
 			<Layer level="ARTWORK">
 				<FontString name="$parent_Text" inherits="GameFontNormal" justifyH="LEFT">
 					<Anchors>
@@ -36,7 +56,7 @@
 						</Anchor>
 					</Anchors>
 					<Size>
-						<AbsDimension x="180" y="18" />
+						<AbsDimension x="165" y="18" />
 					</Size>
 				</FontString>
 			</Layer>
@@ -46,22 +66,22 @@
 				<Size>
 					<AbsDimension x="18" y="18"/>
 				</Size>
-		            <Anchors>
-		                <Anchor point="LEFT" relativePoint="LEFT">
-		                    <Offset>
-		                        <AbsDimension x="0" y="0"/>
-		                    </Offset>
-		                </Anchor>
-		            </Anchors>
+	            <Anchors>
+	                <Anchor point="LEFT" relativePoint="LEFT">
+	                    <Offset>
+	                        <AbsDimension x="0" y="0"/>
+	                    </Offset>
+	                </Anchor>
+	            </Anchors>
 				<Scripts>
 					<OnClick>
-						SmartLoot.AutorollListRemove(this:GetParent());
+						SmartLoot.AutorollListRemove(self:GetParent());
 					</OnClick>
 					<OnEnter>
-						getglobal(this:GetParent():GetName().."_Highlight"):Show();
+						getglobal(self:GetParent():GetName().."_Highlight"):Show();
 					</OnEnter>
 					<OnLeave>
-						getglobal(this:GetParent():GetName().."_Highlight"):Hide();
+						getglobal(self:GetParent():GetName().."_Highlight"):Hide();
 					</OnLeave>
 				</Scripts>
 			</Button>
@@ -75,14 +95,14 @@
 				</Anchors>
 				<Scripts>
 					<OnClick>
-						SmartLoot.SetAutoroll(this:GetParent(), SmartLoot.Roll.Pass);
+						SmartLoot.SetAutoroll(self:GetParent(), SmartLoot.Roll.Pass);
 					</OnClick>
 					<OnLoad>
-						getglobal(this:GetName().."Text"):SetText("P");
+						getglobal(self:GetName().."Text"):SetText("P");
 					</OnLoad>
 				</Scripts>
 			</CheckButton>
-			<CheckButton name="$parent_Greed" inherits="AutorollListCheckButtonTemplate">
+			<CheckButton name="$parent_Disenchant" inherits="AutorollListCheckButtonTemplate">
 				<Anchors>
 					<Anchor point="RIGHT" relativeTo="$parent" relativePoint="RIGHT">
 						<Offset>
@@ -92,14 +112,14 @@
 				</Anchors>
 				<Scripts>
 					<OnClick>
-						SmartLoot.SetAutoroll(this:GetParent(), SmartLoot.Roll.Greed);
+						SmartLoot.SetAutoroll(self:GetParent(), SmartLoot.Roll.Disenchant);
 					</OnClick>
 					<OnLoad>
-						getglobal(this:GetName().."Text"):SetText("G");
+						getglobal(self:GetName().."Text"):SetText("D");
 					</OnLoad>
 				</Scripts>
 			</CheckButton>
-			<CheckButton name="$parent_Need" inherits="AutorollListCheckButtonTemplate">
+			<CheckButton name="$parent_Greed" inherits="AutorollListCheckButtonTemplate">
 				<Anchors>
 					<Anchor point="RIGHT" relativeTo="$parent" relativePoint="RIGHT">
 						<Offset>
@@ -109,24 +129,41 @@
 				</Anchors>
 				<Scripts>
 					<OnClick>
-						SmartLoot.SetAutoroll(this:GetParent(), SmartLoot.Roll.Need);
+						SmartLoot.SetAutoroll(self:GetParent(), SmartLoot.Roll.Greed);
 					</OnClick>
 					<OnLoad>
-						getglobal(this:GetName().."Text"):SetText("N");
+						getglobal(self:GetName().."Text"):SetText("G");
+					</OnLoad>
+				</Scripts>
+			</CheckButton>
+			<CheckButton name="$parent_Need" inherits="AutorollListCheckButtonTemplate">
+				<Anchors>
+					<Anchor point="RIGHT" relativeTo="$parent" relativePoint="RIGHT">
+						<Offset>
+							<AbsDimension x="-85" y="0"/>
+						</Offset>
+					</Anchor>
+				</Anchors>
+				<Scripts>
+					<OnClick>
+						SmartLoot.SetAutoroll(self:GetParent(), SmartLoot.Roll.Need);
+					</OnClick>
+					<OnLoad>
+						getglobal(self:GetName().."Text"):SetText("N");
 					</OnLoad>
 				</Scripts>
 			</CheckButton>
 		</Frames>
 		<Scripts>
 			<OnEnter>
-				getglobal(this:GetName().."_Highlight"):Show();
+				getglobal(self:GetName().."_Highlight"):Show();
 			</OnEnter>
 			<OnLeave>
-				getglobal(this:GetName().."_Highlight"):Hide();
+				getglobal(self:GetName().."_Highlight"):Hide();
 			</OnLeave>
 		</Scripts>
 	</Frame>
-	
+
 	<Frame name="SmartLoot_OptionsFrame" toplevel="true" frameStrata="DIALOG" movable="true" enableMouse="true" hidden="true" parent="UIParent" enableKeyboard="true">
 		<Size>
 			<AbsDimension x="580" y="360"/>
@@ -134,7 +171,7 @@
 		<Anchors>
 			<Anchor point="CENTER"/>
 		</Anchors>
-		<Backdrop bgFile="Interface\DialogFrame\UI-DialogBox-Background" edgeFile="Interface\DialogFrame\UI-DialogBox-Border" title="true">
+		<Backdrop bgFile="Interface\DialogFrame\UI-DialogBox-Background" edgeFile="Interface\DialogFrame\UI-DialogBox-Border">
 			<BackgroundInsets>
 				<AbsInset left="11" right="12" top="12" bottom="11"/>
 			</BackgroundInsets>
@@ -145,9 +182,9 @@
 				<AbsValue val="32"/>
 			</EdgeSize>
 		</Backdrop>
-		
+
 		<TitleRegion setAllPoints="true" />
-		
+
 		<Layers>
 			<Layer level="ARTWORK">
 				<Texture name="$parentHeader" file="Interface\DialogFrame\UI-DialogBox-Header">
@@ -178,20 +215,20 @@
 				<Size>
 					<AbsDimension x="32" y="32"/>
 				</Size>
-		            <Anchors>
-		                <Anchor point="CENTER" relativePoint="TOPRIGHT">
-		                    <Offset>
-		                        <AbsDimension x="-24" y="-24"/>
-		                    </Offset>
-		                </Anchor>
-		            </Anchors>
+	            <Anchors>
+	                <Anchor point="CENTER" relativePoint="TOPRIGHT">
+	                    <Offset>
+	                        <AbsDimension x="-24" y="-24"/>
+	                    </Offset>
+	                </Anchor>
+	            </Anchors>
 				<Scripts>
 					<OnClick>
-						this:GetParent():Hide();
+						self:GetParent():Hide();
 					</OnClick>
 				</Scripts>
 			</Button>
-			<CheckButton name="$parent_ShowAnchor" inherits="OptionsCheckButtonTemplate">
+			<CheckButton name="$parent_ShowAnchor" inherits="SmartLoot_CheckButtonTemplate">
 				<Anchors>
 					<Anchor point="TOPLEFT">
 						<Offset>
@@ -201,15 +238,15 @@
 				</Anchors>
 				<Scripts>
 					<OnClick>
-						SmartLoot.SetOption("ShowAnchor", this:GetChecked());
+						SmartLoot.SetOption("ShowAnchor", self:GetChecked());
 					</OnClick>
 					<OnLoad>
-						getglobal(this:GetName().."Text"):SetText(SmartLoot.Res.ShowAnchor.Label);
-						getglobal(this:GetName()).tooltipText = SmartLoot.Res.ShowAnchor.Tooltip;
+						getglobal(self:GetName().."Text"):SetText(SmartLoot.Res.ShowAnchor.Label);
+						self.tooltipText = SmartLoot.Res.ShowAnchor.Tooltip;
 					</OnLoad>
 				</Scripts>
 			</CheckButton>
-			<CheckButton name="$parent_HideDefaultFrames" inherits="OptionsCheckButtonTemplate">
+			<CheckButton name="$parent_HideDefaultFrames" inherits="SmartLoot_CheckButtonTemplate">
 				<Anchors>
 					<Anchor point="TOPLEFT">
 						<Offset>
@@ -219,15 +256,15 @@
 				</Anchors>
 				<Scripts>
 					<OnClick>
-						SmartLoot.SetOption("HideDefaultFrames", this:GetChecked());
+						SmartLoot.SetOption("HideDefaultFrames", self:GetChecked());
 					</OnClick>
 					<OnLoad>
-						getglobal(this:GetName().."Text"):SetText(SmartLoot.Res.HideDefaultFrames.Label);
-						getglobal(this:GetName()).tooltipText = SmartLoot.Res.HideDefaultFrames.Tooltip;
+						getglobal(self:GetName().."Text"):SetText(SmartLoot.Res.HideDefaultFrames.Label);
+						self.tooltipText = SmartLoot.Res.HideDefaultFrames.Tooltip;
 					</OnLoad>
 				</Scripts>
 			</CheckButton>
-			<CheckButton name="$parent_AutoLoot" inherits="OptionsCheckButtonTemplate">
+			<CheckButton name="$parent_AutoLoot" inherits="SmartLoot_CheckButtonTemplate">
 				<Anchors>
 					<Anchor point="TOPLEFT">
 						<Offset>
@@ -237,15 +274,15 @@
 				</Anchors>
 				<Scripts>
 					<OnClick>
-						SmartLoot.SetOption("AutoLoot", this:GetChecked());
+						SmartLoot.SetOption("AutoLoot", self:GetChecked());
 					</OnClick>
 					<OnLoad>
-						getglobal(this:GetName().."Text"):SetText(SmartLoot.Res.AutoLoot.Label);
-						getglobal(this:GetName()).tooltipText = SmartLoot.Res.AutoLoot.Tooltip;
+						getglobal(self:GetName().."Text"):SetText(SmartLoot.Res.AutoLoot.Label);
+						self.tooltipText = SmartLoot.Res.AutoLoot.Tooltip;
 					</OnLoad>
 				</Scripts>
 			</CheckButton>
-			<CheckButton name="$parent_AutoConfirm" inherits="OptionsCheckButtonTemplate">
+			<CheckButton name="$parent_AutoConfirm" inherits="SmartLoot_CheckButtonTemplate">
 				<Anchors>
 					<Anchor point="TOPLEFT">
 						<Offset>
@@ -255,11 +292,11 @@
 				</Anchors>
 				<Scripts>
 					<OnClick>
-						SmartLoot.SetOption("AutoConfirm", this:GetChecked());
+						SmartLoot.SetOption("AutoConfirm", self:GetChecked());
 					</OnClick>
 					<OnLoad>
-						getglobal(this:GetName().."Text"):SetText(SmartLoot.Res.AutoConfirm.Label);
-						getglobal(this:GetName()).tooltipText = SmartLoot.Res.AutoConfirm.Tooltip;
+						getglobal(self:GetName().."Text"):SetText(SmartLoot.Res.AutoConfirm.Label);
+						self.tooltipText = SmartLoot.Res.AutoConfirm.Tooltip;
 					</OnLoad>
 				</Scripts>
 			</CheckButton>
@@ -297,7 +334,7 @@
 					</Layer>
 				</Layers>
 				<Frames>
-					<Frame name="$parent_Tooltip">
+					<Frame name="$parent_Tooltip" enableMouse="true">
 						<Size>
 							<AbsDimension x="100" y="15" />
 						</Size>
@@ -307,8 +344,8 @@
 						</Anchors>
 						<Scripts>
 							<OnEnter>
-								GameTooltip:SetOwner(this, "ANCHOR_TOPRIGHT");
-								GameTooltip:SetText(SmartLoot.Res.LootFrameCount.Tooltip);
+								GameTooltip:SetOwner(self, "ANCHOR_TOPRIGHT");
+								GameTooltip:SetText(SmartLoot.Res.LootFrameCount.Tooltip, nil, nil, nil, nil, true);
 								GameTooltip:Show();
 							</OnEnter>
 							<OnLeave>
@@ -353,11 +390,11 @@
 				</Frames>
 				<Scripts>
 					<OnLoad>
-						getglobal(this:GetName().."_Label"):SetText(SmartLoot.Res.LootFrameCount.Label);
+						getglobal(self:GetName().."_Label"):SetText(SmartLoot.Res.LootFrameCount.Label);
 					</OnLoad>
 				</Scripts>
 			</Frame>
-			<CheckButton name="$parent_TestLoot" inherits="OptionsCheckButtonTemplate">
+			<CheckButton name="$parent_TestLoot" inherits="SmartLoot_CheckButtonTemplate">
 				<Anchors>
 					<Anchor point="TOPLEFT">
 						<Offset>
@@ -367,15 +404,15 @@
 				</Anchors>
 				<Scripts>
 					<OnClick>
-						SmartLoot.ToggleTestLoot(this:GetChecked());
+						SmartLoot.ToggleTestLoot(self:GetChecked());
 					</OnClick>
 					<OnLoad>
-						getglobal(this:GetName().."Text"):SetText(SmartLoot.Res.TestLoot.Label);
-						getglobal(this:GetName()).tooltipText = SmartLoot.Res.TestLoot.Tooltip;
+						getglobal(self:GetName().."Text"):SetText(SmartLoot.Res.TestLoot.Label);
+						self.tooltipText = SmartLoot.Res.TestLoot.Tooltip;
 					</OnLoad>
 				</Scripts>
 			</CheckButton>
-			<CheckButton name="$parent_ShowMinimapButton" inherits="OptionsCheckButtonTemplate">
+			<CheckButton name="$parent_ShowMinimapButton" inherits="SmartLoot_CheckButtonTemplate">
 				<Anchors>
 					<Anchor point="TOPLEFT">
 						<Offset>
@@ -385,11 +422,11 @@
 				</Anchors>
 				<Scripts>
 					<OnClick>
-						SmartLoot.SetOption("ShowMinimapButton", this:GetChecked());
+						SmartLoot.SetOption("ShowMinimapButton", self:GetChecked());
 					</OnClick>
 					<OnLoad>
-						getglobal(this:GetName().."Text"):SetText(SmartLoot.Res.ShowMinimapButton.Label);
-						getglobal(this:GetName()).tooltipText = SmartLoot.Res.ShowMinimapButton.Tooltip;
+						getglobal(self:GetName().."Text"):SetText(SmartLoot.Res.ShowMinimapButton.Label);
+						self.tooltipText = SmartLoot.Res.ShowMinimapButton.Tooltip;
 					</OnLoad>
 				</Scripts>
 			</CheckButton>
@@ -406,14 +443,14 @@
 				</Anchors>
 				<Scripts>
 					<OnLoad>
-						getglobal(this:GetName().."Text"):SetText(SmartLoot.Res.MinimapButtonPosition);
-						getglobal(this:GetName().."High"):SetText("360");
-						getglobal(this:GetName().."Low"):SetText("0");
-						this:SetMinMaxValues(0,360);
-						this:SetValueStep(1);
+						getglobal(self:GetName().."Text"):SetText(SmartLoot.Res.MinimapButtonPosition);
+						getglobal(self:GetName().."High"):SetText("360");
+						getglobal(self:GetName().."Low"):SetText("0");
+						self:SetMinMaxValues(0,360);
+						self:SetValueStep(1);
 					</OnLoad>
 					<OnValueChanged>
-						SmartLoot.SetOption("MinimapButtonPosition", this:GetValue());
+						SmartLoot.SetOption("MinimapButtonPosition", self:GetValue());
 					</OnValueChanged>
 				</Scripts>
 			</Slider>
@@ -427,7 +464,7 @@
 							<AbsDimension x="225" y="-35"/>
 						</Offset>
 					</Anchor>
-				</Anchors>				
+				</Anchors>
 				<Layers>
 					<Layer level="ARTWORK">
 						<FontString inherits="GameFontHighlight" text="Autoloot roll options">
@@ -455,9 +492,11 @@
 						</FontString>
 					</Layer>
 				</Layers>
-				
+
 				<Frames>
-					<Button name="$parent_Quality" inherits="UIDropDownMenuTemplate">
+					<!-- UIDropDownMenuTemplate is a Frame from 2.0 onwards (it was a
+					     Button in 1.12) -->
+					<Frame name="$parent_Quality" inherits="UIDropDownMenuTemplate">
 						<Anchors>
 							<Anchor point="LEFT" relativeTo="$parent_QualityLabel" relativePoint="RIGHT">
 								<Offset>
@@ -465,7 +504,7 @@
 								</Offset>
 							</Anchor>
 						</Anchors>
-					</Button>
+					</Frame>
 					 <EditBox name="$parent_Name" inherits="InputBoxTemplate" autoFocus="false">
 						<Size>
 							<AbsDimension x="200" y="20" />
@@ -481,6 +520,9 @@
 							<OnEnterPressed>
 								SmartLoot.ApplyFilter();
 							</OnEnterPressed>
+							<OnEscapePressed>
+								self:ClearFocus();
+							</OnEscapePressed>
 						</Scripts>
 					</EditBox>
 					<Button inherits="UIPanelButtonTemplate" text="Filter">
@@ -636,7 +678,7 @@
 						</Anchors>
 						<Scripts>
 							<OnVerticalScroll>
-								FauxScrollFrame_OnVerticalScroll(18, SmartLoot.UpdateAutorollListScrollBar); 
+								FauxScrollFrame_OnVerticalScroll(self, offset, 18, SmartLoot.UpdateAutorollListScrollBar);
 							</OnVerticalScroll>
 						</Scripts>
 					</ScrollFrame>
@@ -645,7 +687,7 @@
 		</Frames>
 		<Scripts>
 			<OnShow>
-				SmartLoot.PopulateOptionsUI(this);
+				SmartLoot.PopulateOptionsUI(self);
 			</OnShow>
 			<OnHide>
 				SmartLoot.OnOptionsHide();
