@@ -124,11 +124,21 @@ function SmartLoot.IneligibleReason(reason, deSkillRequired)
 		return nil;
 	end
 
-	if(string.find(text, "%%d")) then
+	-- some reason strings take the required skill level as a format argument,
+	-- the rest are plain text
+	if(string.find(text, "%%[ds]")) then
 		return string.format(text, deSkillRequired or 0);
 	end
 
 	return text;
+end
+
+-- ITEM_QUALITY_COLORS doesn't necessarily have an entry for every quality the
+-- client has a name for, so never index it directly
+function SmartLoot.QualityColor(quality)
+	return ITEM_QUALITY_COLORS[quality or 1]
+		or ITEM_QUALITY_COLORS[1]
+		or { r = 1; g = 1; b = 1; hex = "|cffffffff" };
 end
 
 function SmartLoot.GetLootInfo(rollId, timeout)
@@ -267,7 +277,7 @@ function SmartLoot.InitializeRollDropDown(dropDown, roll, rollName)
 end
 
 function SmartLoot.AddAutoLootButton(roll, rollName, loot)
-	local color = ITEM_QUALITY_COLORS[loot.quality];
+	local color = SmartLoot.QualityColor(loot.quality);
 	UIDropDownMenu_AddButton({
 		text = "Always "..rollName.." on "..color.hex.."["..loot.name.."]|r";
 		func = SmartLoot.AddAutoLoot;
@@ -344,7 +354,7 @@ function SmartLoot.PopulateLootFrame(frame, loot)
 	icon:SetTexture(loot.texture);
 	itemName:SetText(loot.name);
 
-	local color = ITEM_QUALITY_COLORS[loot.quality];
+	local color = SmartLoot.QualityColor(loot.quality);
 	itemName:SetTextColor(color.r, color.g, color.b, 1);
 
 	for i, button in ipairs(SmartLoot.RollButtons) do
@@ -412,13 +422,26 @@ end
 
 function SmartLoot.OnIconEnter(self)
 	local frame = self:GetParent();
+	local loot = frame.loot;
 
-	if(not frame.loot or frame.loot.rollId < 0) then
+	if(not loot) then
+		return;
+	end
+
+	-- test loot has no roll for the server to describe, it carries a borrowed
+	-- item link instead
+	if(loot.rollId < 0 and not loot.link) then
 		return;
 	end
 
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT", -(self:GetWidth()), 0);
-	GameTooltip:SetLootRollItem(frame.loot.rollId);
+
+	if(loot.rollId < 0) then
+		GameTooltip:SetHyperlink(loot.link);
+	else
+		GameTooltip:SetLootRollItem(loot.rollId);
+	end
+
 	GameTooltip:Show();
 end
 
@@ -436,15 +459,39 @@ function SmartLoot.OnRollButtonEnter(self)
 	GameTooltip:Show();
 end
 
+-- test loot borrows something the player is wearing: a real link means a real
+-- tooltip (and working shift-compare), and an equipped item is always cached
+function SmartLoot.GetTestLootItem()
+	local slots = { "HeadSlot", "ChestSlot", "MainHandSlot", "LegsSlot", "HandsSlot" };
+
+	for i, slot in ipairs(slots) do
+		local link = GetInventoryItemLink("player", GetInventorySlotInfo(slot));
+
+		if(link) then
+			local name, _, quality, _, _, _, _, _, _, texture = GetItemInfo(link);
+
+			if(name) then
+				return link, name, quality, texture;
+			end
+		end
+	end
+
+	-- naked character, fall back to a made up item with no tooltip
+	return nil, "Crimson Felt Hat", 3, "Interface\\Icons\\INV_Helmet_51";
+end
+
 function SmartLoot.ToggleTestLoot(show)
 	if(show) then
+		local link, name, quality, texture = SmartLoot.GetTestLootItem();
+
 		for i = 1, SmartLoot_Options.LootFrameCount, 1 do
 			local loot = {
 				rollId = -1;
 				timeout = 60000;
-				texture = "Interface\\Icons\\INV_Helmet_51";
-				name = "Crimson Felt Hat";
-				quality = 3;
+				link = link;
+				texture = texture;
+				name = name;
+				quality = quality;
 				can = {};
 				reason = {};
 			};

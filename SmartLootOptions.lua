@@ -42,10 +42,11 @@ function SmartLoot.LoadQualityDropDown()
 
 	for q = 2, 7, 1 do
 		local desc = getglobal("ITEM_QUALITY"..q.."_DESC");
+		local color = ITEM_QUALITY_COLORS[q];
 
-		if(desc) then
+		if(desc and color) then
 			UIDropDownMenu_AddButton({
-				text = ITEM_QUALITY_COLORS[q].hex..desc;
+				text = color.hex..desc;
 				func = SmartLoot.SetAutorollQualityFilter;
 				arg1 = q;
 			});
@@ -99,7 +100,7 @@ function SmartLoot.RenderAutorollList()
 				hide = true;
 				frame:Hide();
 			else
-				local color = ITEM_QUALITY_COLORS[info.quality];
+				local color = SmartLoot.QualityColor(info.quality);
 
 				local text = getglobal(frame:GetName().."_Text");
 				local need = getglobal(frame:GetName().."_Need");
