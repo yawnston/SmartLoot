@@ -1,6 +1,6 @@
 ## Interface: 30300
 ## Title: SmartLoot
-## Version: 1.3
+## Version: 3.0
 ## Author: Necros
 ## SavedVariablesPerCharacter: SmartLoot_Options, SmartLoot_Autoroll
 SmartLoot.lua
