@@ -434,6 +434,8 @@ function SmartLoot.OnIconEnter(self)
 		return;
 	end
 
+	self.comparing = (IsModifiedClick("COMPAREITEMS") and true) or false;
+
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT", -(self:GetWidth()), 0);
 
 	if(loot.rollId < 0) then
@@ -445,7 +447,23 @@ function SmartLoot.OnIconEnter(self)
 	GameTooltip:Show();
 end
 
+-- the comparison tooltip is only evaluated while the tooltip is being built, so
+-- rebuild it when the modifier is pressed or released mid-hover
+function SmartLoot.OnIconUpdate(self)
+	if(GameTooltip:GetOwner() ~= self) then
+		self.comparing = nil;
+		return;
+	end
+
+	local comparing = (IsModifiedClick("COMPAREITEMS") and true) or false;
+
+	if(comparing ~= self.comparing) then
+		SmartLoot.OnIconEnter(self);
+	end
+end
+
 function SmartLoot.OnIconLeave(self)
+	self.comparing = nil;
 	GameTooltip:Hide();
 end
 

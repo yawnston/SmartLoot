@@ -95,6 +95,9 @@
 					<OnLeave>
 						SmartLoot.OnIconLeave(self);
 					</OnLeave>
+					<OnUpdate>
+						SmartLoot.OnIconUpdate(self);
+					</OnUpdate>
 				</Scripts>
 			</Button>
 			<Button name="$parent_Info">
